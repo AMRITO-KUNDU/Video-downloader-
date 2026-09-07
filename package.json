@@ -1,0 +1,16 @@
+{
+  "name": "video-downloader",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Video downloader app for Render Docker deployment",
+  "type": "module",
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "formidable": "^3.5.2"
+  }
+}
