@@ -1,144 +1,96 @@
 import { useState } from 'react'
 import './ResultPanel.css'
 
-const FORMAT_PRESETS = [
-  { id: 'mp4', label: 'MP4' },
-  { id: 'webm', label: 'WebM' },
-  { id: 'm4a', label: 'Audio' },
-]
+export default function ResultPanel({
+  videoMeta,
+  loading,
+  progress,
+  error,
+  resultUrl,
+  onDownloadFormat,
+  onReset,
+}) {
+  const [selectedFormat, setSelectedFormat] = useState(null)
 
-export default function ResultPanel({ originalUrl, resultUrl, loading, onReset, fileName }) {
-  const [view, setView] = useState('compare')
-  const [sliderPos, setSliderPos] = useState(50)
-  const [format, setFormat] = useState('mp4')
-
-  const handleDownload = () => {
-    if (!resultUrl) return
-    const base = fileName?.replace(/\.[^/.]+$/, '') ?? 'video'
-    const a = document.createElement('a')
-    a.href = resultUrl
-    a.download = `${base}.${format}`
-    a.click()
+  const handleDownload = (format) => {
+    setSelectedFormat(format)
+    onDownloadFormat(format)
   }
 
   return (
     <div className="result-panel">
-      <div className="result-tabs">
-        {[
-          { id: 'compare', label: 'Compare', icon: 'compare' },
-          { id: 'result', label: 'Result', icon: 'movie' },
-          { id: 'original', label: 'Original', icon: 'videocam' },
-        ].map((t) => (
-          <button
-            key={t.id}
-            className={`tab-btn ${view === t.id ? 'active' : ''}`}
-            onClick={() => setView(t.id)}
-            type="button"
-          >
-            <span className="material-icons-round">{t.icon}</span>
-            {t.label}
-          </button>
-        ))}
+      {error && (
+        <div className="error-bar" role="alert">
+          <span className="material-icons-round">error_outline</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      <div className="video-info">
+        {videoMeta?.thumbnail && (
+          <div className="video-thumbnail">
+            <img src={videoMeta.thumbnail} alt={videoMeta.title} />
+          </div>
+        )}
+        <div className="video-details">
+          <h2 className="video-title">{videoMeta?.title || 'Video'}</h2>
+          {videoMeta?.duration && (
+            <p className="video-duration">{videoMeta.duration}</p>
+          )}
+        </div>
       </div>
 
-      <div className="result-viewport">
-        {loading ? (
-          <div className="viewport-state">
-            <span className="spinner" />
-            <span className="state-text">Fetching video…</span>
+      {loading ? (
+        <div className="download-state">
+          <span className="spinner" />
+          <p>Preparing download...</p>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
           </div>
-        ) : (
-          <>
-            {view === 'compare' && (
-              <div className="slider-root">
-                <video src={originalUrl} controls className="slider-layer" />
-
-                <div
-                  className="slider-fg"
-                  style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
-                >
-                  <video
-                    src={resultUrl || originalUrl}
-                    controls
-                    className="slider-layer"
-                  />
-                </div>
-
-                <div className="slider-line" style={{ left: `${sliderPos}%` }}>
-                  <div className="slider-handle">
-                    <span className="material-icons-round">unfold_more</span>
-                  </div>
-                </div>
-
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={sliderPos}
-                  onChange={(e) => setSliderPos(Number(e.target.value))}
-                  className="slider-input"
-                  aria-label="Compare slider"
-                />
-
-                <span className="layer-label label-left">Before</span>
-                <span className="layer-label label-right">After</span>
-              </div>
-            )}
-
-            {view === 'result' && (
-              <div className="single-view">
-                {resultUrl ? (
-                  <video src={resultUrl} controls className="preview-img" />
-                ) : (
-                  <div className="viewport-state">
-                    <span className="material-icons-round state-icon">movie</span>
-                    <span className="state-text">Result will appear here</span>
+        </div>
+      ) : resultUrl ? (
+        <div className="download-success">
+          <span className="material-icons-round" style={{ fontSize: '48px', color: '#16a34a' }}>
+            check_circle
+          </span>
+          <p>Ready to download!</p>
+          <a href={resultUrl} download className="btn-primary" style={{ marginTop: '12px' }}>
+            <span className="material-icons-round">download</span>
+            Download now
+          </a>
+        </div>
+      ) : (
+        <div className="format-selector">
+          <p className="format-label">Select download format:</p>
+          <div className="format-grid">
+            {videoMeta?.formats?.map((fmt) => (
+              <button
+                key={fmt.id}
+                className="format-btn"
+                onClick={() => handleDownload(fmt.id)}
+                disabled={loading || selectedFormat === fmt.id}
+                type="button"
+              >
+                <div className="format-name">{fmt.format}</div>
+                <div className="format-quality">{fmt.quality}</div>
+                {selectedFormat === fmt.id && (
+                  <div className="format-loading">
+                    <span className="spinner small" />
                   </div>
                 )}
-              </div>
-            )}
-
-            {view === 'original' && (
-              <div className="single-view">
-                <video src={originalUrl} controls className="preview-img" />
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="result-footer">
-        <div className="bg-picker">
-          <span className="label-sm">Format</span>
-          <div className="bg-dots">
-            {FORMAT_PRESETS.map((p) => (
-              <button
-                key={p.id}
-                className={`bg-dot ${format === p.id ? 'active' : ''}`}
-                onClick={() => setFormat(p.id)}
-                title={p.label}
-                type="button"
-                aria-label={`Format: ${p.label}`}
-              >
-                {p.label}
               </button>
             ))}
           </div>
         </div>
+      )}
 
-        <div className="result-actions">
-          <button className="btn-ghost" onClick={onReset} type="button">
-            <span className="material-icons-round">refresh</span>
-            New video
-          </button>
-          {resultUrl && (
-            <button className="btn-primary" onClick={handleDownload} type="button">
-              <span className="material-icons-round">download</span>
-              Download
-            </button>
-          )}
-        </div>
-      </div>
+      {!loading && resultUrl && (
+        <button className="btn-ghost" onClick={onReset} type="button" style={{ marginTop: '16px' }}>
+          <span className="material-icons-round">refresh</span>
+          Download another video
+        </button>
+      )}
     </div>
   )
 }
+

@@ -1,94 +1,134 @@
-# StreamFetch — Video Downloader
+# YouTubeDownload - YouTube Video Downloader
 
-A lightweight Vercel + React app for downloading video files from direct links or local uploads. The project keeps the same monorepo layout as the original template, but swaps the image-processing backend for a downloader flow.
-
-## Stack
-
-- Frontend: React + Vite
-- Backend: Vercel serverless API route
-- Storage: none required for direct links
-- Optional extraction: `yt-dlp` for non-direct URLs
-
-## Project structure
-
-```text
-.
-├── api/
-│   └── download.js            # Vercel serverless route for video downloads
-├── frontend/
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── vercel.json
-│   └── src/
-│       ├── App.jsx
-│       ├── App.css
-│       ├── components/
-│       ├── hooks/
-│       └── lib/
-├── package.json
-├── vercel.json
-└── README.md
-```
+A fast, simple app to download YouTube videos in your preferred format. Paste a link, select a format, and get your video instantly.
 
 ## Features
 
-- Paste a video URL and download it
-- Drag and drop a local video file
-- Compare original vs result before downloading
-- Quick format selection for MP4 / WebM / audio export
-- Keeps the same UI structure as the original template for an easy visual match
+- Paste a YouTube URL
+- Fetches video metadata (title, thumbnail, duration)
+- Shows available download formats
+- Download in MP4, WebM, MP3, or other available formats
+- Clean, minimal UI
+- Runs on Render with Docker
+
+## Tech stack
+
+- Frontend: React + Vite
+- Backend: Node.js + Express
+- Video extraction: `yt-dlp`
+- Deployment: Docker + Render
+
+## Project structure
+
+```
+.
+├── Dockerfile
+├── .dockerignore
+├── server.js
+├── package.json
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.js
+│   └── src/
+│       ├── App.jsx
+│       ├── components/
+│       ├── hooks/
+│       └── lib/
+└── README.md
+```
+
+## How it works
+
+1. User pastes a YouTube URL in the input field
+2. App calls `/api/video-info` to fetch video metadata (title, thumbnail, available formats)
+3. Thumbnail and available formats are displayed
+4. User selects a format and clicks download
+5. App calls `/api/download` with the selected format
+6. Server uses `yt-dlp` to extract and convert the video
+7. Video is sent back to the browser for download
 
 ## Local development
 
-1. Install dependencies:
+Install dependencies:
 
 ```bash
 npm install
-cd frontend && npm install
+npm --prefix frontend install
 ```
 
-1. Start the app:
+Run locally:
 
 ```bash
 npm run dev
 ```
 
-The root script runs the frontend dev server through Vercel-style development.
+The Express server runs on port `10000` and serves the app at `http://localhost:10000`.
 
-## Backend behavior
-
-The route in `api/download.js` supports both:
-
-- Direct media links such as `https://example.com/video.mp4`
-- Uploaded local video files
-- Optional extraction with `yt-dlp` for public video URLs when the binary is available
-
-If the supplied link is already a direct video file, the route streams that file back to the browser.
-
-## Prerequisites for URL extraction
-
-If you want broader URL support for streaming sites or share links, install `yt-dlp` on the machine or deployment environment:
+## Production build
 
 ```bash
-pip install yt-dlp
+npm run build
+npm start
 ```
 
-Or on macOS / Linux:
+## Docker and Render
+
+This app is built for Render.
+
+### Build and run locally
 
 ```bash
-brew install yt-dlp
+docker build -t youtubedownload .
+docker run -p 10000:10000 youtubedownload
 ```
 
-The app will still work for direct media URLs without any extra setup.
+### Deploy to Render
 
-## Vercel deployment
+1. Connect your GitHub repo
+2. Set build command: `npm install && npm run build`
+3. Set start command: `npm start`
+4. Set port: `10000`
 
-1. Deploy the project to Vercel.
-1. Set the root directory to `frontend` if you are using the repo as a front-end project in Vercel.
-1. Keep the serverless route in `api/download.js` at the project root.
+## API endpoints
 
-## Notes
+### POST /api/video-info
+Fetch video metadata (title, thumbnail, available formats)
 
-- This version is tuned for clean UI parity with the original remover template.
-- For production streaming sites, you may need a stronger backend or a server with `yt-dlp` available in the environment.
-- Always respect copyright and platform terms of service when downloading media.
+**Request:**
+```json
+{ "url": "https://www.youtube.com/watch?v=..." }
+```
+
+**Response:**
+```json
+{
+  "title": "Video Title",
+  "thumbnail": "https://...",
+  "duration": "5:30",
+  "formats": [
+    { "id": "18", "format": "MP4", "quality": "360p" },
+    { "id": "22", "format": "MP4", "quality": "720p" }
+  ]
+}
+```
+
+### POST /api/download
+Download a video in the selected format
+
+**Request:**
+```json
+{ "url": "https://www.youtube.com/watch?v=...", "format": "18" }
+```
+
+**Response:**
+Returns the video file as a binary blob
+
+## Requirements
+
+- Node.js 20+
+- `yt-dlp` installed on the server
+
+## License
+
+Respect copyright and platform terms of service when downloading content.
+

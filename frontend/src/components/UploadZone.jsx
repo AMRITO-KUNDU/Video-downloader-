@@ -1,80 +1,41 @@
 import { useCallback, useState } from 'react'
 import './UploadZone.css'
 
-export default function UploadZone({ onFileSelect, onUrlSubmit }) {
-  const [dragging, setDragging] = useState(false)
+export default function UploadZone({ onUrlSubmit, loading }) {
   const [url, setUrl] = useState('')
-
-  const handleFile = useCallback((file) => {
-    if (!file) return
-    const allowed = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska', 'video/mpeg', 'video/ogg']
-    if (!allowed.includes(file.type) && !file.name.match(/\.(mp4|webm|mov|mkv|mpeg|ogg)$/i)) {
-      alert('Please upload a valid video file. Supported formats: MP4, MOV, WebM, MKV, MPEG, OGG.')
-      return
-    }
-    if (file.size > 250 * 1024 * 1024) {
-      alert('File too large. Maximum size is 250 MB.')
-      return
-    }
-    onFileSelect(file)
-  }, [onFileSelect])
-
-  const handleDrop = useCallback((e) => {
-    e.preventDefault()
-    setDragging(false)
-    handleFile(e.dataTransfer.files?.[0])
-  }, [handleFile])
-
-  const handleDragOver = useCallback((e) => { e.preventDefault(); setDragging(true) }, [])
-  const handleDragLeave = useCallback(() => setDragging(false), [])
-  const handleChange = useCallback((e) => handleFile(e.target.files?.[0]), [handleFile])
-  const open = () => document.getElementById('video-file-input')?.click()
 
   const submitUrl = useCallback((e) => {
     e.preventDefault()
     const trimmed = url.trim()
     if (!trimmed) return
     onUrlSubmit?.(trimmed)
+    setUrl('')
   }, [onUrlSubmit, url])
 
   return (
-    <div
-      className={`upload-zone ${dragging ? 'drag-over' : ''}`}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onClick={open}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && open()}
-      aria-label="Upload or paste a video"
-    >
-      <input
-        id="video-file-input"
-        type="file"
-        accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/mpeg,video/ogg,.mp4,.webm,.mov,.mkv,.mpeg,.ogg"
-        style={{ display: 'none' }}
-        onChange={handleChange}
-      />
-
+    <div className="upload-zone">
       <div className="upload-inner">
         <div className="upload-icon-wrap">
-          <span className="material-icons-round upload-icon">video_library</span>
+          <span className="material-icons-round upload-icon">play_circle</span>
         </div>
-        <p className="upload-title">Drop a video here or <span className="upload-browse">click to browse</span></p>
-        <p className="upload-hint">MP4, MOV, WebM, MKV, MPEG · up to 250 MB</p>
+        <p className="upload-title">Paste a YouTube link</p>
+        <p className="upload-hint">Enter a YouTube URL to see available download formats</p>
 
-        <form className="url-form" onSubmit={submitUrl} onClick={(e) => e.stopPropagation()}>
+        <form className="url-form" onSubmit={submitUrl}>
           <input
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com/video.mp4"
-            aria-label="Video URL"
+            placeholder="https://www.youtube.com/watch?v=..."
+            aria-label="YouTube video URL"
+            disabled={loading}
           />
-          <button type="submit" className="btn-primary url-submit">Paste URL</button>
+          <button type="submit" className="btn-primary url-submit" disabled={loading}>
+            {loading ? 'Fetching...' : 'Fetch'}
+          </button>
         </form>
       </div>
     </div>
   )
 }
+

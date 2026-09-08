@@ -3,7 +3,6 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { execFile } from 'child_process'
-import { IncomingForm } from 'formidable'
 
 const app = express()
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -14,46 +13,60 @@ app.disable('x-powered-by')
 app.use(express.json({ limit: '250mb' }))
 app.use(express.urlencoded({ extended: true, limit: '250mb' }))
 
-function isDirectMediaUrl(value) {
-  if (!value || typeof value !== 'string') return false
 
-  try {
-    const url = new URL(value)
-    return ['http:', 'https:'].includes(url.protocol) && /\.(mp4|m4v|mov|webm|mkv|avi|mpeg|mpg|ogg|m4a|aac|wav)(\?.*)?$/i.test(url.pathname)
-  } catch {
-    return false
-  }
-}
-
-async function fetchDirectMedia(url) {
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`Remote media fetch failed with status ${response.status}`)
-  }
-
-  const buffer = Buffer.from(await response.arrayBuffer())
-  const contentType = response.headers.get('content-type') || 'application/octet-stream'
-  const filename = path.basename(new URL(url).pathname) || 'downloaded-video'
-
-  return { buffer, filename, contentType }
-}
-
-function downloadWithYtDlp(url, outputDir) {
+function getVideoInfo(url) {
   return new Promise((resolve, reject) => {
     const binaries = ['yt-dlp', 'youtube-dl']
 
     const tryNext = (index) => {
       const binary = binaries[index]
       if (!binary) {
-        reject(new Error('yt-dlp is not installed on this server. Install it or provide a direct media URL.'))
+        reject(new Error('yt-dlp is not installed. Install it to use this feature.'))
         return
       }
 
       execFile(
         binary,
+        ['--dump-json', '--no-warnings', url],
+        { maxBuffer: 10 * 1024 * 1024 },
+        (error, stdout, stderr) => {
+          if (error) {
+            tryNext(index + 1)
+            return
+          }
+
+          try {
+            const info = JSON.parse(stdout)
+            resolve(info)
+          } catch (e) {
+            tryNext(index + 1)
+          }
+        }
+      )
+    }
+
+    tryNext(0)
+  })
+}
+
+function downloadWithYtDlp(url, outputDir, format = 'best') {
+  return new Promise((resolve, reject) => {
+    const binaries = ['yt-dlp', 'youtube-dl']
+
+    const tryNext = (index) => {
+      const binary = binaries[index]
+      if (!binary) {
+        reject(new Error('yt-dlp is not installed on this server.'))
+        return
+      }
+
+      const formatArg = format === 'best' ? 'bestvideo+bestaudio/best' : format
+
+      execFile(
+        binary,
         [
           '-f',
-          'bestvideo+bestaudio/best',
+          formatArg,
           '--merge-output-format',
           'mp4',
           '--restrict-filenames',
@@ -76,20 +89,60 @@ function downloadWithYtDlp(url, outputDir) {
   })
 }
 
-function parseMultipart(req) {
-  return new Promise((resolve, reject) => {
-    const form = new IncomingForm({
-      maxFileSize: 250 * 1024 * 1024,
-      keepExtensions: true,
-      multiples: false,
-    })
+app.post('/api/video-info', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
-    form.parse(req, (err, fields, files) => {
-      if (err) reject(err)
-      else resolve({ fields, files })
-    })
-  })
-}
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end()
+  }
+
+  try {
+    const { url } = req.body
+
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({
+        detail: 'No URL provided',
+      })
+    }
+
+    const info = await getVideoInfo(url)
+
+    const formats = []
+    if (info.formats && Array.isArray(info.formats)) {
+      const seenIds = new Set()
+      info.formats.forEach((fmt) => {
+        if (fmt.filesize && !seenIds.has(fmt.format_id)) {
+          seenIds.add(fmt.format_id)
+          let quality = 'unknown'
+          if (fmt.height) quality = `${fmt.height}p`
+          else if (fmt.abr) quality = `${fmt.abr}kbps`
+
+          formats.push({
+            id: fmt.format_id,
+            format: fmt.ext?.toUpperCase() || 'MP4',
+            quality,
+          })
+        }
+      })
+    }
+
+    const metadata = {
+      title: info.title || 'Video',
+      thumbnail: info.thumbnail || null,
+      duration: info.duration
+        ? `${Math.floor(info.duration / 60)}:${String(info.duration % 60).padStart(2, '0')}`
+        : null,
+      formats: formats.slice(0, 10),
+    }
+
+    res.json(metadata)
+  } catch (error) {
+    console.error('[video-info]', error)
+    res.status(500).json({ detail: error.message || 'Failed to fetch video info' })
+  }
+})
 
 app.post('/api/download', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -101,90 +154,48 @@ app.post('/api/download', async (req, res) => {
   }
 
   try {
-    const contentType = req.headers['content-type'] || ''
-    let fields = {}
-    let files = {}
+    const { url, format = 'best' } = req.body
 
-    if (contentType.includes('multipart/form-data')) {
-      ;({ fields, files } = await parseMultipart(req))
-    } else {
-      const body = await new Promise((resolve, reject) => {
-        let data = ''
-        req.on('data', (chunk) => {
-          data += chunk
-        })
-        req.on('end', () => resolve(data))
-        req.on('error', reject)
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({
+        detail: 'No video URL provided',
       })
-
-      if (body) {
-        try {
-          Object.assign(fields, JSON.parse(body))
-        } catch {
-          // ignore malformed JSON
-        }
-      }
     }
 
-    const url = fields.url || fields.videoUrl || fields.link
-    const fileEntry = files.file || files.video || files.media
-    const file = Array.isArray(fileEntry) ? fileEntry[0] : fileEntry
+    const outputDir = fs.mkdtempSync(path.join(process.cwd(), 'tmp-video-'))
 
-    if (file?.filepath) {
-      const buffer = fs.readFileSync(file.filepath)
-      const mime = file.mimetype || 'application/octet-stream'
-      const filename = file.originalFilename || 'uploaded-video.mp4'
+    try {
+      await downloadWithYtDlp(url.trim(), outputDir, format)
+      const filesInDir = fs.readdirSync(outputDir)
+      const downloadFile = filesInDir.find((name) =>
+        /\.(mp4|webm|m4a|mkv|mov|avi|mpeg|ogg)$/i.test(name)
+      )
 
-      try {
-        fs.unlinkSync(file.filepath)
-      } catch {
-        // ignore cleanup failures
+      if (!downloadFile) {
+        throw new Error('No downloadable video file was produced.')
       }
+
+      const finalPath = path.join(outputDir, downloadFile)
+      const fileBuffer = fs.readFileSync(finalPath)
+      const ext = path.extname(downloadFile).toLowerCase()
+      const mime =
+        ext === '.mp4'
+          ? 'video/mp4'
+          : ext === '.webm'
+            ? 'video/webm'
+            : ext === '.m4a'
+              ? 'audio/mp4'
+              : 'application/octet-stream'
 
       res.setHeader('Content-Type', mime)
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
-      return res.status(200).send(buffer)
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadFile}"`)
+      return res.status(200).send(fileBuffer)
+    } finally {
+      fs.rmSync(outputDir, { recursive: true, force: true })
     }
-
-    if (url) {
-      const mediaUrl = String(url).trim()
-
-      if (isDirectMediaUrl(mediaUrl)) {
-        const { buffer, filename, contentType: remoteType } = await fetchDirectMedia(mediaUrl)
-        res.setHeader('Content-Type', remoteType)
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
-        return res.status(200).send(buffer)
-      }
-
-      const outputDir = fs.mkdtempSync(path.join(process.cwd(), 'tmp-video-'))
-      try {
-        await downloadWithYtDlp(mediaUrl, outputDir)
-        const filesInDir = fs.readdirSync(outputDir)
-        const downloadFile = filesInDir.find((name) => /\.(mp4|webm|m4a|mkv|mov|avi|mpeg|ogg)$/i.test(name))
-
-        if (!downloadFile) {
-          throw new Error('No downloadable video file was produced for the supplied URL.')
-        }
-
-        const finalPath = path.join(outputDir, downloadFile)
-        const fileBuffer = fs.readFileSync(finalPath)
-        const ext = path.extname(downloadFile).toLowerCase()
-        const mime = ext === '.mp4' ? 'video/mp4' : ext === '.webm' ? 'video/webm' : 'application/octet-stream'
-
-        res.setHeader('Content-Type', mime)
-        res.setHeader('Content-Disposition', `attachment; filename="${downloadFile}"`)
-        return res.status(200).send(fileBuffer)
-      } finally {
-        fs.rmSync(outputDir, { recursive: true, force: true })
-      }
-    }
-
-    return res.status(400).json({
-      detail: 'No video URL or file was supplied. Pass a file or valid media URL in the form field "url".',
-    })
   } catch (error) {
     console.error('[video-download]', error)
-    return res.status(500).json({ detail: error.message || 'Video processing failed' })
+    return res.status(500).json({ detail: error.message || 'Video download failed' })
   }
 })
 

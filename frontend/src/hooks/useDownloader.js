@@ -1,12 +1,7 @@
 /**
- * Unified hook for:
- * - browser upload
- * - direct download API
- * - alternative video source routes
+ * Hook for downloading YouTube videos in selected format.
  */
 import { useState, useCallback } from 'react'
-import { downloadVideoClient, CLIENT_MODEL_ID } from '../lib/clientSideDownloader'
-import { downloadVideoApi } from '../lib/serverApi'
 
 export function useDownloader() {
   const [loading, setLoading] = useState(false)
@@ -14,8 +9,8 @@ export function useDownloader() {
   const [error, setError] = useState(null)
   const [resultUrl, setResultUrl] = useState(null)
 
-  const download = useCallback(async (source, { model, bestQuality = true } = {}) => {
-    if (!source) return null
+  const download = useCallback(async (videoUrl, { format = 'best' } = {}) => {
+    if (!videoUrl) return null
 
     setLoading(true)
     setError(null)
@@ -27,23 +22,24 @@ export function useDownloader() {
     }, 400)
 
     try {
-      let blob
+      const res = await fetch('/api/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: videoUrl, format }),
+      })
 
-      if (model === CLIENT_MODEL_ID || model === 'browser') {
-        blob = await downloadVideoClient(source)
-      } else {
-        blob = await downloadVideoApi(source, {
-          quality: bestQuality ? 'best' : 'medium',
-          model,
-        })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || 'Download failed')
       }
 
+      const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       setResultUrl(url)
       setProgress(100)
       return url
     } catch (e) {
-      setError(e.message || 'Something went wrong while downloading the video.')
+      setError(e.message || 'Something went wrong')
       return null
     } finally {
       clearInterval(interval)
@@ -60,3 +56,4 @@ export function useDownloader() {
 
   return { loading, progress, error, resultUrl, download, reset, setError }
 }
+

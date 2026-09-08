@@ -10,7 +10,6 @@
     "dev": "node server.js"
   },
   "dependencies": {
-    "express": "^4.21.2",
-    "formidable": "^3.5.2"
+    "express": "^4.21.2"
   }
 }
