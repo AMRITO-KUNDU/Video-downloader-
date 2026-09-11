@@ -1,0 +1,228 @@
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons+Round');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ================================================================
+   DESIGN TOKENS — Light (default) + Dark mode
+   ================================================================ */
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Outfit', 'Inter', sans-serif;
+
+  /* Palette */
+  --bg:          #ffffff;
+  --bg-subtle:   #f7f7f8;
+  --bg-card:     #ffffff;
+  --bg-hover:    #f4f4f5;
+  --bg-active:   #efefef;
+
+  --border:      #e4e4e7;
+  --border-strong: #d1d1d6;
+
+  --text-primary:   #09090b;
+  --text-secondary: #52525b;
+  --text-muted:     #a1a1aa;
+
+  --accent:         #18181b;
+  --accent-fg:      #ffffff;
+  --accent-subtle:  #f4f4f5;
+
+  --success:        #16a34a;
+  --success-bg:     #f0fdf4;
+  --error:          #dc2626;
+  --error-bg:       #fef2f2;
+  --warning:        #d97706;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.06), 0 4px 6px rgba(0,0,0,0.04);
+
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-full: 9999px;
+
+  --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark mode tokens */
+.dark {
+  --bg:          #0a0a0a;
+  --bg-subtle:   #111111;
+  --bg-card:     #141414;
+  --bg-hover:    #1c1c1c;
+  --bg-active:   #232323;
+
+  --border:      #262626;
+  --border-strong: #333333;
+
+  --text-primary:   #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted:     #52525b;
+
+  --accent:         #fafafa;
+  --accent-fg:      #0a0a0a;
+  --accent-subtle:  #1c1c1c;
+
+  --success:        #22c55e;
+  --success-bg:     rgba(22,163,74,0.12);
+  --error:          #ef4444;
+  --error-bg:       rgba(220,38,38,0.12);
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.5);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.5);
+}
+
+/* ================================================================
+   BASE RESET
+   ================================================================ */
+html, body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s, color 0.2s;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+a { color: inherit; }
+
+img { max-width: 100%; display: block; }
+
+/* ================================================================
+   UTILITY CLASSES
+   ================================================================ */
+
+/* Primary filled button */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  height: 38px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity var(--transition);
+  white-space: nowrap;
+}
+.btn-primary:hover { opacity: 0.85; }
+.btn-primary:active { opacity: 0.75; }
+.btn-primary .material-icons-round { font-size: 16px; }
+
+/* Ghost / outline button */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  height: 36px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.btn-ghost:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.btn-ghost .material-icons-round { font-size: 16px; }
+
+/* Icon-only button */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background var(--transition), color var(--transition);
+}
+.btn-icon:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.btn-icon .material-icons-round { font-size: 16px; }
+
+/* Transparent checkerboard */
+.checkerboard {
+  background-image:
+    linear-gradient(45deg, #e4e4e7 25%, transparent 25%),
+    linear-gradient(-45deg, #e4e4e7 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e4e4e7 75%),
+    linear-gradient(-45deg, transparent 75%, #e4e4e7 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  background-color: #f4f4f5;
+}
+.dark .checkerboard {
+  background-image:
+    linear-gradient(45deg, #262626 25%, transparent 25%),
+    linear-gradient(-45deg, #262626 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #262626 75%),
+    linear-gradient(-45deg, transparent 75%, #262626 75%);
+  background-color: #1c1c1c;
+}
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Section headings */
+.label-sm {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-full);
+}
